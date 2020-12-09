@@ -99,6 +99,54 @@ Form
 			CheckBox { name: "averageInterItemCor";	label: qsTr("Average interitem correlation")}
 			CheckBox { name: "meanScale";			label: qsTr("Mean")							}
 			CheckBox { name: "sdScale";				label: qsTr("Standard deviation")			}
+
+			Group
+			{
+
+				title: qsTr("Intraclass Correlation (Shrout and Fleiss)")
+				CheckBox
+				{
+					id: 	icc1
+					name: 	"icc1Scale";
+					label: 	qsTr("ICC1: Single raters (absolute)");
+				}
+
+				CheckBox
+				{
+					id: 	icc2
+					name: 	"icc2Scale";
+					label: 	qsTr("ICC2: Single random raters");
+				}
+
+				CheckBox
+				{
+					id: 	icc3
+					name: 	"icc3Scale";
+					label: 	qsTr("ICC3: Single fixed raters");
+				}
+
+				CheckBox
+				{
+					id: 	icc1k
+					name: 	"icc1kScale";
+					label: 	qsTr("ICC1k: Average raters (absolute)");
+				}
+
+				CheckBox
+				{
+					id: 	icc2k
+					name: 	"icc2kScale";
+					label: 	qsTr("ICC2k: Average random raters");
+				}
+
+				CheckBox
+				{
+					id: 	icc3k
+					name: 	"icc3kScale";
+					label: 	qsTr("ICC3k: Average fixed raters");
+				}
+
+			}
 			
 		}
 		

@@ -19,14 +19,18 @@ reliabilityFrequentist <- function(jaspResults, dataset, options) {
   # order of appearance in Bayesrel
   derivedOptions <- list(
     selectedEstimatorsF  = unlist(options[c("mcDonaldScale","alphaScale", "guttman2Scale", "guttman6Scale", 
-                                            "glbScale", "averageInterItemCor", "meanScale", "sdScale")]),
+                                            "glbScale", "averageInterItemCor", "meanScale", "sdScale",
+                                            "icc1Scale", "icc2Scale", "icc3Scale", "icc1kScale", "icc2kScale", "icc3kScale")]),
     itemDroppedSelectedF = unlist(options[c("mcDonaldItem", "alphaItem", "guttman2Item", "guttman6Item",
                                             "glbItem", "itemRestCor", "meanItem", "sdItem")]),
     namesEstimators     = list(
       tables = c("McDonald's \u03C9", "Cronbach's \u03B1", "Guttman's \u03BB2", "Guttman's \u03BB6", 
-                 "Greatest Lower Bound", "Average interitem correlation", "mean", "sd"),
+                 "Greatest Lower Bound", "Average interitem correlation", "mean", "sd",
+                 "ICC1", "ICC2", "ICC3", "ICC1k", "ICC2k", "ICC3k"),
       tables_item = c("McDonald's \u03C9", "Cronbach's \u03B1", "Guttman's \u03BB2", "Guttman's \u03BB6", 
-                      gettext("Greatest Lower Bound"), gettext("Item-rest correlation"), gettext("mean"), gettext("sd")),
+                      gettext("Greatest Lower Bound"), gettext("Item-rest correlation"), gettext("mean"), gettext("sd"),
+                      "ICC1", "ICC2", "ICC3", "ICC1k", "ICC2k", "ICC3k"),
+      # TODO: Add ICC here as well?
       coefficients = c("McDonald's \u03C9", "Cronbach's \u03B1", "Guttman's \u03BB2", "Guttman's \u03BB6", 
                        gettext("Greatest Lower Bound")),
       plots = list(expression("McDonald's"~omega), expression("Cronbach\'s"~alpha), expression("Guttman's"~lambda[2]), 
@@ -37,7 +41,13 @@ reliabilityFrequentist <- function(jaspResults, dataset, options) {
   return(derivedOptions)
 }
 
+.frequentistIntraclassCorrelation <- function (dataset) {
+  icc_results_df <- psych::ICC(dataset)$results
+  icc_vec <- icc_results_df$ICC
+  names(icc_vec) <- icc_results_df$type
 
+  return(icc_vec)
+}
 
 # estimate reliability ----
 # maybe in the future it would be easier to have one function for every estimator...
@@ -45,6 +55,8 @@ reliabilityFrequentist <- function(jaspResults, dataset, options) {
   if (!options[["mcDonaldScale"]] && !options[["alphaScale"]] && !options[["guttman2Scale"]]
       && !options[["guttman6Scale"]] && !options[["glbScale"]] && !options[["averageInterItemCor"]]
       && !options[["meanScale"]] && !options[["sdScale"]] 
+      && !options[["icc1Scale"]] && !options[["icc2Scale"]] && !options[["icc3Scale"]]
+      && !options[["icc1kScale"]] && !options[["icc2kScale"]] && !options[["icc3kScale"]]
       && !options[["itemRestCor"]] && !options[["meanItem"]] && !options[["sdItem"]]) {
     variables <- options[["variables"]]
     if (length(options[["reverseScaledItems"]]) > 0L) {
@@ -180,7 +192,11 @@ reliabilityFrequentist <- function(jaspResults, dataset, options) {
         }
         relyFit[["freq"]][["boot"]][["mean"]] <- c(NA_real_, NA_real_)
         relyFit[["freq"]][["boot"]][["sd"]] <- c(NA_real_, NA_real_)
-        
+
+        # Compute the different ICCs and append them to `relyFit[["freq"]][["est"]]`
+        icc_vec <- .frequentistIntraclassCorrelation(dataset)
+        names(icc_vec) <- paste0("freq_", tolower(names(icc_vec)))
+        relyFit[["freq"]][["est"]] <- c(relyFit[["freq"]][["est"]], as.list(icc_vec))
         
         # now the item statistics
         relyFit[["freq"]][["ifitem"]][["ircor"]] <- numeric(p)
@@ -193,7 +209,8 @@ reliabilityFrequentist <- function(jaspResults, dataset, options) {
         # reorder for JASP
         names_est <- names(relyFit[["freq"]][["est"]])
         order_est <- c("freq_omega", "freq_alpha", "freq_lambda2", "freq_lambda6", "freq_glb", 
-                       "avg_cor", "mean", "sd")
+                       "avg_cor", "mean", "sd",
+                       "freq_icc1", "freq_icc2", "freq_icc3", "freq_icc1k", "freq_icc2k", "freq_icc3k")
         new_order_est <- match(order_est, names_est)
         relyFit[["freq"]][["est"]] <- relyFit[["freq"]][["est"]][new_order_est]
         
@@ -275,10 +292,16 @@ reliabilityFrequentist <- function(jaspResults, dataset, options) {
           alpha.item <- apply(Cvtmp, 1, Bayesrel:::applyalpha)
           
         }
+        
+        icc_vec <- .frequentistIntraclassCorrelation(dataset)
+
         relyFit[["freq"]][["est"]] <- list(freq_omega = omega.est, freq_alpha = alpha, 
                                  freq_lambda2 = Bayesrel:::applylambda2(cv), freq_lambda6 = Bayesrel:::applylambda6(cv),
                                  freq_glb = Bayesrel:::glbOnArray(cv), avg_cor = mean(cordat[lower.tri(cordat)]), 
-                                 mean = mean(rowMeans(dataset, na.rm = TRUE)), sd = sd(colMeans(dataset, na.rm = TRUE)))
+                                 mean = mean(rowMeans(dataset, na.rm = TRUE)), sd = sd(colMeans(dataset, na.rm = TRUE)),
+                                 freq_icc1 = icc_vec["ICC1"], freq_icc2 = icc_vec["ICC2"], freq_icc3 = icc_vec["ICC3"],
+                                 freq_icc1k = icc_vec["ICC1k"], freq_icc2k = icc_vec["ICC2k"], freq_icc3k = icc_vec["ICC3k"]
+                                 )
 
         relyFit[["freq"]][["ifitem"]] <- list(omega = omega.item, alpha = alpha.item, 
                                           lambda2 = apply(Cvtmp, 1, Bayesrel:::applylambda2), 
@@ -342,10 +365,27 @@ reliabilityFrequentist <- function(jaspResults, dataset, options) {
           names(omegaCfi) <- c("lower", "upper")
           scaleCfi[["omega"]] <- omegaCfi
         } 
+
+        # Use the analytic confidence interval for ICC,
+        # as bootstrapping the ICC manually would be quite resource intensive
+        icc_results_df <- psych::ICC(dataset, alpha = 1 - options[["confidenceIntervalValue"]])$results
+
+        icc_lower <- icc_results_df[["lower bound"]]
+        icc_upper <- icc_results_df[["upper bound"]]
+        names(icc_lower) <- icc_results_df$type
+        names(icc_upper) <- icc_results_df$type
+
+        for (icc_type in icc_results_df$type) {
+          iccCfi <- c(icc_lower[[icc_type]], icc_upper[[icc_type]])
+          names(iccCfi) <- c("lower", "upper")
+          scaleCfi[[tolower(icc_type)]] <- iccCfi
+        }
+
         # reorder for JASP:
         names_cfi <- names(scaleCfi)
         order_cfi <- c("omega", "alpha", "lambda2", "lambda6", "glb", 
-                        "avg_cor", "mean", "sd")
+                        "avg_cor", "mean", "sd",
+                        "icc1", "icc2", "icc3", "icc1k", "icc2k", "icc3k")
         new_order_cfi <- match(order_cfi, names_cfi)
         scaleCfi <- scaleCfi[new_order_cfi]
         
@@ -396,6 +436,7 @@ reliabilityFrequentist <- function(jaspResults, dataset, options) {
   }
   scaleTable <- createJaspTable(gettext("Frequentist Scale Reliability Statistics"))
   scaleTable$dependOn(options = c("variables", "mcDonaldScale", "alphaScale", "guttman2Scale", "guttman6Scale",
+                                   "icc1Scale", "icc2Scale", "icc3Scale", "icc1kScale", "icc2kScale", "icc3kScale",
                                    "glbScale", "reverseScaledItems", "confidenceIntervalValue", "noSamples", 
                                    "averageInterItemCor", "meanScale", "sdScale", "missingValues", "omegaEst", 
                                    "alphaMethod", "alphaInterval", "omegaInterval", "bootType", 
@@ -419,7 +460,9 @@ reliabilityFrequentist <- function(jaspResults, dataset, options) {
 # if no coefficients selected:
   if ((!options[["mcDonaldScale"]] && !options[["alphaScale"]] && !options[["guttman2Scale"]] 
        && !options[["guttman6Scale"]] && !options[["glbScale"]] && !options[["averageInterItemCor"]]
-       && !options[["meanScale"]] && !options[["sdScale"]])) {
+       && !options[["meanScale"]] && !options[["sdScale"]]
+       && !options[["icc1Scale"]] && !options[["icc2Scale"]] && !options[["icc3Scale"]]
+       && !options[["icc1kScale"]] && !options[["icc2kScale"]] && !options[["icc3kScale"]])) {
     
     scaleTable$setData(allData)
     nvar <- length(options[["variables"]])
@@ -522,6 +565,7 @@ reliabilityFrequentist <- function(jaspResults, dataset, options) {
   itemTable$dependOn(options = c("variables",
                                   "mcDonaldScale", "alphaScale", "guttman2Scale", "guttman6Scale", "glbScale", 
                                   "averageInterItemCor", "meanScale", "sdScale",
+                                  "icc1Scale", "icc2Scale", "icc3Scale", "icc1kScale", "icc2kScale", "icc3kScale",
                                   "mcDonaldItem",  "alphaItem",  "guttman2Item", "guttman6Item", "glbItem",
                                   "reverseScaledItems", "meanItem", "sdItem", "itemRestCor", "missingValues", 
                                   "omegaEst", "alphaMethod", "setSeed", "seedValue"))
